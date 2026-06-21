@@ -68,6 +68,15 @@ export default function ProjectPage() {
 
   const { progress, running, start, stop, reset } = usePipeline(projectName)
   const canStart = tracks.length > 0 && outputDir && !running && backendOnline
+  const startBlockedMessage = running
+    ? ''
+    : !backendOnline
+      ? '后端未连接，请确认打包目录包含 resources/python，或安装并配置 Python 后端环境。'
+      : !outputDir
+        ? '请选择输出目录。'
+        : tracks.length === 0
+          ? '请先添加素材。'
+          : ''
 
   useEffect(() => {
     const state = location.state as { showSetup?: boolean } | null
@@ -401,6 +410,11 @@ export default function ProjectPage() {
                     <Play className="w-5 h-5" fill="currentColor" />
                   </span>
                 </button>
+                {startBlockedMessage && (
+                  <p className="mt-3 max-w-md text-xs leading-5 text-white/35">
+                    {startBlockedMessage}
+                  </p>
+                )}
               </div>
             </div>
           </div>

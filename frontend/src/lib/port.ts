@@ -21,14 +21,14 @@ export function setBackendPort(p: number, edition = EXPECTED_BACKEND_EDITION) {
   sessionStorage.setItem('panofusion-edition', edition)
 }
 
-export function getApiBase(): string { return `http://localhost:${_port}/api` }
-export function getWsUrl(name: string): string { return `ws://localhost:${_port}/ws/${encodeURIComponent(name)}` }
+export function getApiBase(): string { return `http://127.0.0.1:${_port}/api` }
+export function getWsUrl(name: string): string { return `ws://127.0.0.1:${_port}/ws/${encodeURIComponent(name)}` }
 export function isExpectedBackend(health: BackendHealth): boolean {
   return health.status === 'ok' && health.edition === EXPECTED_BACKEND_EDITION
 }
 
 export async function getBackendHealth(port = _port): Promise<BackendHealth> {
-  const r = await fetch(`http://localhost:${port}/api/health`)
+  const r = await fetch(`http://127.0.0.1:${port}/api/health`)
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
   return r.json()
 }

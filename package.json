@@ -40,6 +40,10 @@
         "to": "scripts"
       },
       {
+        "from": "python",
+        "to": "python"
+      },
+      {
         "from": "colmap",
         "to": "colmap"
       }

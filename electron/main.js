@@ -15,10 +15,15 @@ function getBackendScript() {
 }
 
 function getBackendPython() {
+  if (process.env.PANOFUSION_BACKEND_PYTHON) {
+    return process.env.PANOFUSION_BACKEND_PYTHON
+  }
   if (process.env.PANOFUSION_PYTHON) {
     return process.env.PANOFUSION_PYTHON
   }
   const candidates = [
+    path.join(RESOURCES, 'python', 'Scripts', 'python.exe'),
+    path.join(RESOURCES, 'python', 'python.exe'),
     path.join(RESOURCES, '.venv', 'Scripts', 'python.exe'),
   ]
   const fs = require('fs')
@@ -40,6 +45,7 @@ function startBackend() {
       ...process.env,
       PANOFUSION_PORT: String(BACKEND_PORT),
       PYTHONUNBUFFERED: '1',
+      PYTHONNOUSERSITE: '1',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   })

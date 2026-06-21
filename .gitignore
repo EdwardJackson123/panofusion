@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 frontend/node_modules/
+python/*
+!python/README.md
 
 # Build output
 release/
