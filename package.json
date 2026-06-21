@@ -1,0 +1,64 @@
+{
+  "name": "panofusion",
+  "version": "1.0.0",
+  "description": "PanoFusion — Automated Panoramic Reconstruction with Metashape",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev:frontend": "cd frontend && npx vite --port 5173",
+    "dev:electron": "node electron/dev-runner.js",
+    "dev": "concurrently \"npm run dev:frontend\" \"sleep 2 && npm run dev:electron\"",
+    "build:frontend": "cd frontend && npx vite build",
+    "build:electron": "electron-builder --win",
+    "build": "npm run build:frontend && npm run build:electron"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.0"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0"
+  },
+  "build": {
+    "appId": "com.panofusion.metashape",
+    "productName": "PanoFusion",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend"
+      },
+      {
+        "from": "scripts",
+        "to": "scripts"
+      },
+      {
+        "from": "python",
+        "to": "python"
+      }
+    ],
+    "win": {
+      "sign": null,
+      "signAndEditExecutable": true,
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "forceCodeSigning": false,
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": null,
+      "uninstallerIcon": null,
+      "installerHeaderIcon": null,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

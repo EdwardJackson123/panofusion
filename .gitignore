@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+python/*
+!python/README.md
+
+# Build output
+release/
+frontend/dist/
+dist/
+out/
+build/
+
+# Runtime data
+backend/projects/
+backend/work/
+projects/
+work/
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.psx
+*.psz
+*.ply
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Local binary tools and proprietary bundles
+ffmpeg.exe
+ffprobe.exe
+backend/ffmpeg.exe
+backend/ffprobe.exe
+backend/*.dll
+Metashape/*
+!Metashape/README.md
+
+# Python virtual environment
+.venv/
+
+# OS / editor / local agent files
+.DS_Store
+Thumbs.db
+.vs/
+.idea/
+.vscode/
+.agents/
