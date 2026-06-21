@@ -7,8 +7,6 @@ let backendProcess = null
 const BACKEND_PORT = 8765
 let backendUrl = `http://localhost:${BACKEND_PORT}`
 
-// In packaged app, resources are in process.resourcesPath
-// In dev mode, they're relative to __dirname
 const isPackaged = app.isPackaged
 const RESOURCES = isPackaged ? process.resourcesPath : path.join(__dirname, '..')
 
@@ -16,13 +14,12 @@ function getBackendScript() {
   return path.join(RESOURCES, 'backend', 'main.py')
 }
 
-function getMetashapePython() {
-  if (process.env.PANOFUSION_METASHAPE_PYTHON) {
-    return process.env.PANOFUSION_METASHAPE_PYTHON
+function getBackendPython() {
+  if (process.env.PANOFUSION_PYTHON) {
+    return process.env.PANOFUSION_PYTHON
   }
   const candidates = [
-    path.join(RESOURCES, 'Metashape', 'App', 'Metashape', 'python', 'python.exe'),
-    path.join('C:', 'Program Files', 'Agisoft', 'Metashape Pro', 'python', 'python.exe'),
+    path.join(RESOURCES, '.venv', 'Scripts', 'python.exe'),
   ]
   const fs = require('fs')
   for (const c of candidates) {
@@ -32,7 +29,7 @@ function getMetashapePython() {
 }
 
 function startBackend() {
-  const pythonExe = getMetashapePython()
+  const pythonExe = getBackendPython()
   const script = getBackendScript()
 
   console.log(`[PanoFusion] Starting backend: ${pythonExe} ${script}`)
@@ -115,7 +112,7 @@ function createWindow() {
   const { Menu } = require('electron')
   Menu.setApplicationMenu(null)
 
-  // In dev mode, load Vite dev server. In packaged app, load built files from asar.
+  // In dev mode, load Vite dev server. In packaged app, load built files.
   if (!app.isPackaged || process.argv.includes('--dev')) {
     mainWindow.loadURL('http://localhost:5173')
     if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: 'detach' })

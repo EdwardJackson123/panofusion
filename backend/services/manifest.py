@@ -133,7 +133,7 @@ def build_panorama_track(index, video_path, work_dir, seconds_per_frame, max_fra
         "source_paths": [str(video)],
         "seconds_per_frame": seconds_per_frame,
         "max_frames": max_frames,
-        "metashape_mode": "dual_fisheye_station",
+        
         "export_mode": "cubemap",
         "left_sensor_label": f"{track_id}_left",
         "right_sensor_label": f"{track_id}_right",
@@ -155,7 +155,7 @@ def build_photo_track(index, label, paths, track_type):
         "track_type": track_type,
         "device_label": label,
         "source_paths": [str(Path(p).resolve()) for p in paths],
-        "metashape_mode": "pinhole_frame",
+        
         "export_mode": "undistorted_frame",
         "group_label": f"{track_id}_photos",
         "sensor_label": sensor_label,

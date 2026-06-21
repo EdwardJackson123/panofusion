@@ -149,9 +149,10 @@ export default function ProgressRings({ progress, running, startTime }: Props) {
 
       <div className="flex justify-center gap-8">
         {stages.map(s => {
-          const v = s.key === 'extract' ? progress.extractProgress : s.key === 'align' ? progress.alignProgress : progress.exportProgress
+          const rawValue = s.key === 'extract' ? progress.extractProgress : s.key === 'align' ? progress.alignProgress : progress.exportProgress
           const active = isRunning && ((s.key === 'extract' && progress.phase === 'extracting') || (s.key === 'align' && progress.phase === 'aligning') || (s.key === 'export' && progress.phase === 'exporting'))
           const done = progress.phase === 'done' || (s.key === 'extract' && ['aligning', 'exporting', 'done'].includes(progress.phase)) || (s.key === 'align' && ['exporting', 'done'].includes(progress.phase))
+          const v = done ? 100 : rawValue
           return <Ring key={s.key} value={v} color={s.color} icon={s.icon} label={s.label} isActive={active} isDone={done} />
         })}
       </div>

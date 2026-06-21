@@ -18,22 +18,20 @@ work/
 *.db
 *.db-shm
 *.db-wal
-*.psx
-*.psz
 *.ply
 
 # Python caches
 __pycache__/
 *.py[cod]
 
-# Local binary tools and proprietary bundles
+# Local binary tools and external reconstruction engines
 ffmpeg.exe
 ffprobe.exe
 backend/ffmpeg.exe
 backend/ffprobe.exe
 backend/*.dll
-Metashape/*
-!Metashape/README.md
+colmap/*
+!colmap/README.md
 
 # OS / editor / local agent files
 .DS_Store

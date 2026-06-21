@@ -1,7 +1,7 @@
 {
-  "name": "panofusion",
+  "name": "panofusion-colmap",
   "version": "1.0.0",
-  "description": "PanoFusion — Automated Panoramic Reconstruction with Metashape",
+  "description": "PanoFusion COLMAP Edition — Automated Panoramic Reconstruction with COLMAP",
   "main": "electron/main.js",
   "scripts": {
     "dev:frontend": "cd frontend && npx vite --port 5173",
@@ -20,8 +20,8 @@
     "electron-store": "^8.2.0"
   },
   "build": {
-    "appId": "com.panofusion.metashape",
-    "productName": "PanoFusion",
+    "appId": "com.panofusion.colmap",
+    "productName": "PanoFusion COLMAP",
     "directories": {
       "output": "release"
     },
@@ -40,23 +40,20 @@
         "to": "scripts"
       },
       {
-        "from": "Metashape",
-        "to": "Metashape"
+        "from": "colmap",
+        "to": "colmap"
       }
     ],
     "win": {
+      "target": "nsis",
       "sign": null,
       "signAndEditExecutable": true,
-      "target": "nsis",
       "icon": "icon.ico"
     },
     "forceCodeSigning": false,
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": null,
-      "uninstallerIcon": null,
-      "installerHeaderIcon": null,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }

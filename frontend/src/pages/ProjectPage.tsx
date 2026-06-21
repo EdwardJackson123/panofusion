@@ -14,7 +14,29 @@ import { getApiBase, detectPort, EXPECTED_BACKEND_EDITION } from '@/lib/port'
 import type { MaterialTrack, TrackType } from '@/lib/types'
 
 const STORAGE_KEY = 'panofusion-project-state'
-function loadState() { try { const r = localStorage.getItem(STORAGE_KEY); if (r) return JSON.parse(r) } catch {} return null }
+const SETTINGS_VERSION = 6
+const DEFAULT_KEYPOINT_LIMIT = 16000
+const DEFAULT_MAX_NUM_MATCHES = 32768
+function loadState() {
+  try {
+    const r = localStorage.getItem(STORAGE_KEY)
+    if (!r) return null
+    const parsed = JSON.parse(r)
+    if (parsed?.settingsVersion !== SETTINGS_VERSION) {
+      const migrated = { ...parsed, settingsVersion: SETTINGS_VERSION }
+      delete migrated.enableRigRefinement
+      if (!migrated.keypointLimit) {
+        migrated.keypointLimit = DEFAULT_KEYPOINT_LIMIT
+      }
+      if (!migrated.maxNumMatches) {
+        migrated.maxNumMatches = DEFAULT_MAX_NUM_MATCHES
+      }
+      return migrated
+    }
+    return parsed
+  } catch {}
+  return null
+}
 function saveState(s: object) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch {} }
 
 const trackDef: Record<TrackType, { icon: typeof Film; label: string }> = {
@@ -38,9 +60,9 @@ export default function ProjectPage() {
   const [backendOnline, setBackendOnline] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [startTime, setStartTime] = useState(0)
-  const [accuracy, setAccuracy] = useState<'high' | 'medium' | 'low'>(init?.accuracy || 'high')
-  const [keypointLimit, setKeypointLimit] = useState(init?.keypointLimit || 40000)
-  const [tiepointLimit, setTiepointLimit] = useState(init?.tiepointLimit || 0)
+  const [keypointLimit, setKeypointLimit] = useState(init?.keypointLimit || DEFAULT_KEYPOINT_LIMIT)
+  const [maxNumMatches, setMaxNumMatches] = useState(init?.maxNumMatches || DEFAULT_MAX_NUM_MATCHES)
+  const [transitiveMatching, setTransitiveMatching] = useState(init?.enableTransitiveMatching ?? false)
   const [groundPlane, setGroundPlane] = useState(init?.groundPlane ?? true)
   const [upAxis, setUpAxis] = useState(init?.upAxis || '+Y')
 
@@ -67,13 +89,14 @@ export default function ProjectPage() {
       secondsPerFrame,
       maxFrames,
       projectName,
-      accuracy,
       keypointLimit,
-      tiepointLimit,
+      maxNumMatches,
+      enableTransitiveMatching: transitiveMatching,
+      settingsVersion: SETTINGS_VERSION,
       groundPlane,
       upAxis,
     })
-  }, [tracks, outputDir, secondsPerFrame, maxFrames, projectName, accuracy, keypointLimit, tiepointLimit, groundPlane, upAxis])
+  }, [tracks, outputDir, secondsPerFrame, maxFrames, projectName, keypointLimit, maxNumMatches, transitiveMatching, groundPlane, upAxis])
   useEffect(() => {
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -116,13 +139,13 @@ export default function ProjectPage() {
     outputDir,
     secondsPerFrame,
     maxFrames,
-    accuracy,
     keypointLimit,
-    tiepointLimit,
+    maxNumMatches,
+    enableTransitiveMatching: transitiveMatching,
     groundPlane,
     upAxis,
     tracks: tracks.map(t => ({ trackType: t.trackType, label: t.label, paths: t.paths })),
-  }), [projectName, outputDir, secondsPerFrame, maxFrames, accuracy, keypointLimit, tiepointLimit, groundPlane, upAxis, tracks])
+  }), [projectName, outputDir, secondsPerFrame, maxFrames, keypointLimit, maxNumMatches, transitiveMatching, groundPlane, upAxis, tracks])
 
   const saveProject = useCallback(async () => {
     const res = await fetch(getApiBase() + '/projects', {
@@ -162,9 +185,9 @@ export default function ProjectPage() {
     setSecondsPerFrame(1.0)
     setMaxFrames(0)
     setStartTime(0)
-    setAccuracy('high')
-    setKeypointLimit(40000)
-    setTiepointLimit(0)
+    setKeypointLimit(DEFAULT_KEYPOINT_LIMIT)
+    setMaxNumMatches(DEFAULT_MAX_NUM_MATCHES)
+    setTransitiveMatching(false)
     setGroundPlane(true)
     setUpAxis('+Y')
     setAdvancedOpen(false)
@@ -206,7 +229,7 @@ export default function ProjectPage() {
           {/* Sidebar */}
           <aside className="w-72 shrink-0 border-r flex flex-col" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
             <div className="px-7 pt-4 pb-2" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-              <h1 className="text-base font-serif tracking-tight text-white/85" style={{ fontFamily: 'Georgia, serif' }}>PanoFusion</h1>
+              <h1 className="text-base font-serif tracking-tight text-white/85" style={{ fontFamily: 'Georgia, serif' }}>PanoFusion <span className="text-white/35">COLMAP</span></h1>
             </div>
             <div className="px-7 pb-5">
               <p className="text-sm text-white/45" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>Panoramic reconstruction</p>
@@ -316,26 +339,16 @@ export default function ProjectPage() {
                           style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
                       </div>
                       <div>
-                        <p className="text-xs text-white/50 mb-1.5 uppercase tracking-wider">对齐精度</p>
-                        <select value={accuracy} onChange={e => setAccuracy(e.target.value as 'high' | 'medium' | 'low')}
-                          className="px-0 py-1 text-sm bg-transparent text-white/70 focus:outline-none border-b cursor-pointer"
-                          style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-                          <option value="high" className="bg-[#1a1d22]">高</option>
-                          <option value="medium" className="bg-[#1a1d22]">中</option>
-                          <option value="low" className="bg-[#1a1d22]">低</option>
-                        </select>
-                      </div>
-                      <div>
-                        <p className="text-xs text-white/50 mb-1.5 uppercase tracking-wider">关键点</p>
-                        <input type="number" value={keypointLimit} onChange={e => setKeypointLimit(parseInt(e.target.value) || 40000)} min={1000} step={1000}
-                          className="w-20 px-0 py-1 text-sm font-mono bg-transparent text-white/70 focus:outline-none border-b"
+                        <p className="text-xs text-white/50 mb-1.5 uppercase tracking-wider">特征数</p>
+                        <input type="number" value={keypointLimit} onChange={e => setKeypointLimit(parseInt(e.target.value) || DEFAULT_KEYPOINT_LIMIT)} min={1000} max={60000} step={1000}
+                          className="w-24 px-0 py-1 text-sm font-mono bg-transparent text-white/70 focus:outline-none border-b"
                           style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
                       </div>
                     </div>
                     <div className="flex gap-8 items-end">
                       <div>
-                        <p className="text-xs text-white/50 mb-1.5 uppercase tracking-wider">连点上限</p>
-                        <input type="number" value={tiepointLimit} onChange={e => setTiepointLimit(parseInt(e.target.value) || 0)} min={0} step={1000}
+                        <p className="text-xs text-white/50 mb-1.5 uppercase tracking-wider">最大匹配数</p>
+                        <input type="number" value={maxNumMatches} onChange={e => setMaxNumMatches(parseInt(e.target.value) || DEFAULT_MAX_NUM_MATCHES)} min={0} step={1000}
                           className="w-20 px-0 py-1 text-sm font-mono bg-transparent text-white/70 focus:outline-none border-b"
                           style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
                       </div>
@@ -357,6 +370,17 @@ export default function ProjectPage() {
                             style={{ left: groundPlane ? '18px' : '2px' }} />
                         </button>
                         <span className="text-xs text-white/50 uppercase tracking-wider">地平面校正</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-8 items-end">
+                      <div className="flex items-center gap-2 pb-1">
+                        <button onClick={() => setTransitiveMatching(!transitiveMatching)}
+                          className="relative w-8 h-4 rounded-full transition-colors duration-200"
+                          style={{ background: transitiveMatching ? 'rgba(120,160,200,0.5)' : 'rgba(255,255,255,0.08)' }}>
+                          <div className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all duration-200"
+                            style={{ left: transitiveMatching ? '18px' : '2px' }} />
+                        </button>
+                        <span className="text-xs text-white/50 uppercase tracking-wider">传递匹配</span>
                       </div>
                     </div>
                   </div>

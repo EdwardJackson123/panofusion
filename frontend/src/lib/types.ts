@@ -16,7 +16,9 @@ export interface PipelineConfig {
   metashapeExe?: string
   accuracy?: 'high' | 'medium' | 'low'
   keypointLimit?: number
-  tiepointLimit?: number
+  maxNumMatches?: number
+  enableTransitiveMatching?: boolean
+  enableRigRefinement?: boolean
   groundPlane?: boolean
   upAxis?: '+Y' | '-Y' | '+Z' | '-Z' | '+X' | '-X'
 }

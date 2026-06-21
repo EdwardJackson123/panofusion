@@ -1,5 +1,4 @@
-# PanoFusion Backend Requirements
-# Note: Metashape module is provided by Metashape's bundled Python — not installable via pip
+# PanoFusion COLMAP Backend Requirements
 
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0

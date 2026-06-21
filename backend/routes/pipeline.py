@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from config import PROJECTS_DIR
 from routes.project_names import project_dir, safe_project_name
-from services.pipeline import run_pipeline
+from services.colmap_pipeline import run_pipeline
 
 router = APIRouter()
 

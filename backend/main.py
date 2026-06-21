@@ -1,12 +1,11 @@
 """
-PanoFusion Backend — FastAPI application
-Runs under Metashape's bundled Python for direct `import Metashape`
+PanoFusion COLMAP Edition — FastAPI application
+Uses COLMAP CLI for SfM reconstruction (no Metashape dependency)
 """
 import os
 import sys
 from pathlib import Path
 
-# Ensure the backend directory is on sys.path so relative imports work
 _backend_dir = Path(__file__).resolve().parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
@@ -22,21 +21,8 @@ from routes.pipeline import router as pipeline_router, shutdown_pipelines
 from routes.viewer import router as viewer_router
 from ws.progress import ProgressManager
 
-# ── Detect Metashape availability ──
-METASHAPE_AVAILABLE = False
-try:
-    import Metashape  # noqa: F401
-    METASHAPE_AVAILABLE = True
-except ImportError:
-    pass
+app = FastAPI(title="PanoFusion COLMAP Edition", version="0.1.0")
 
-app = FastAPI(
-    title="PanoFusion Backend",
-    version="0.1.0",
-    description="Automated panoramic reconstruction pipeline with Metashape",
-)
-
-# CORS — allow Electron/Vite dev server
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -52,66 +38,45 @@ app.add_middleware(
         "http://127.0.0.1:8768",
         "app://.",
     ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
-# Shared state
 progress_manager = ProgressManager()
 app.state.progress_manager = progress_manager
-app.state.active_pipelines: dict = {}  # project_name -> thread
+app.state.active_pipelines = {}
 
-# Register routes
 app.include_router(project_router, prefix="/api")
 app.include_router(pipeline_router, prefix="/api")
 app.include_router(viewer_router, prefix="/api")
 
-
-# ── Health check ──
 @app.get("/api/health")
 async def health():
-    return {
-        "status": "ok",
-        "edition": "metashape",
-        "metashape_available": METASHAPE_AVAILABLE,
-        "timestamp": datetime.now().isoformat(),
-    }
+    from config import find_colmap_exe
+    colmap = find_colmap_exe()
+    return {"status": "ok", "edition": "colmap", "colmap": colmap, "timestamp": datetime.now().isoformat()}
 
-
-# ── WebSocket for real-time progress ──
 @app.websocket("/ws/{project_name}")
-async def websocket_endpoint(websocket: WebSocket, project_name: str):
+async def ws(websocket: WebSocket, project_name: str):
     await progress_manager.connect(websocket, project_name)
     try:
         while True:
             data = await websocket.receive_text()
-            if data == 'ping':
-                await websocket.send_text('pong')
-    except WebSocketDisconnect:
-        pass
-    except Exception:
-        pass
-    finally:
-        progress_manager.disconnect(websocket, project_name)
-
+            if data == 'ping': await websocket.send_text('pong')
+    except WebSocketDisconnect: pass
+    except Exception: pass
+    finally: progress_manager.disconnect(websocket, project_name)
 
 @app.on_event("startup")
-async def startup_event():
-    # Store event loop for thread-safe WebSocket broadcasting
+async def startup():
     import asyncio
     progress_manager.set_loop(asyncio.get_running_loop())
-    print(f"[PanoFusion] Backend starting on port {os.environ.get('PANOFUSION_ACTUAL_PORT', os.environ.get('PANOFUSION_PORT', '8765'))}")
-    print(f"[PanoFusion] Metashape available: {METASHAPE_AVAILABLE}")
-    print(f"[PanoFusion] Projects dir: {PROJECTS_DIR}")
-
+    print(f"[PanoFusion COLMAP] Backend starting on port {os.environ.get('PANOFUSION_ACTUAL_PORT', os.environ.get('PANOFUSION_PORT', '8765'))}")
 
 @app.on_event("shutdown")
-async def shutdown_event():
-    print("[PanoFusion] Backend shutting down")
+async def shutdown():
+    print("[PanoFusion COLMAP] Backend shutting down")
     shutdown_pipelines()
     app.state.active_pipelines.clear()
-
 
 def _port_free(port: int) -> bool:
     import socket
@@ -132,16 +97,9 @@ def main():
                 port = fallback
                 break
     os.environ["PANOFUSION_ACTUAL_PORT"] = str(port)
-    print(f"[PanoFusion] Starting backend on http://127.0.0.1:{port}" +
+    print(f"[PanoFusion COLMAP] Starting backend on http://127.0.0.1:{port}" +
           (f" (preferred {preferred} was busy)" if port != preferred else ""))
-    uvicorn.run(
-        "main:app",
-        host="127.0.0.1",
-        port=port,
-        log_level="info",
-        reload=False,
-    )
-
+    uvicorn.run("main:app", host="127.0.0.1", port=port, log_level="info", reload=False)
 
 if __name__ == "__main__":
     main()

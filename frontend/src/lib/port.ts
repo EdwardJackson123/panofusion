@@ -2,7 +2,7 @@ const DEFAULT_PORT = 8765
 const FALLBACK_PORTS = [8765, 8766, 8767, 8768]
 const HEALTH_TTL_MS = 2500
 
-export const EXPECTED_BACKEND_EDITION = 'metashape'
+export const EXPECTED_BACKEND_EDITION = 'colmap'
 export type BackendHealth = { status?: string; edition?: string }
 
 function readStoredPort(): number | null {
@@ -56,6 +56,6 @@ export async function ensureBackendPort(): Promise<number> {
     return _port
   }
   const detected = await detectPort()
-  if (detected == null) throw new Error('未找到匹配的 Metashape 后端')
+  if (detected == null) throw new Error('未找到匹配的 COLMAP 后端')
   return detected
 }

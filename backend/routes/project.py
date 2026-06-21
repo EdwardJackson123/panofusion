@@ -28,8 +28,10 @@ class CreateProjectRequest(BaseModel):
     secondsPerFrame: float = 1.0
     maxFrames: int = 0
     accuracy: str = "high"
-    keypointLimit: int = 40000
-    tiepointLimit: int = 0
+    keypointLimit: int = 16000
+    maxNumMatches: int = 32768
+    enableTransitiveMatching: bool = False
+    enableRigRefinement: bool = False
     groundPlane: bool = True
     upAxis: str = "+Y"
     tracks: list[TrackDef] = Field(default_factory=list)
@@ -87,7 +89,9 @@ async def create_project(req: CreateProjectRequest):
         "maxFrames": req.maxFrames,
         "accuracy": req.accuracy,
         "keypointLimit": req.keypointLimit,
-        "tiepointLimit": req.tiepointLimit,
+        "maxNumMatches": req.maxNumMatches,
+        "enableTransitiveMatching": req.enableTransitiveMatching,
+        "enableRigRefinement": req.enableRigRefinement,
         "groundPlane": req.groundPlane,
         "upAxis": req.upAxis,
         "tracks": [t.model_dump() for t in req.tracks],
