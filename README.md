@@ -40,7 +40,7 @@ npm run dev
 
 前端开发服务器运行在 `http://localhost:5173`。
 
-### 4. 启动 Electron (开发模式)
+### 4. 启动桌面端 (开发模式)
 
 ```batch
 npm install
@@ -59,7 +59,7 @@ PanoFusion/
 │   ├── src/
 │   │   ├── pages/       # ProjectPage, ViewerPage
 │   │   ├── components/  # TrackManager, ProgressPanel, LogViewer, etc.
-│   │   ├── hooks/       # useWebSocket, usePipeline
+│   │   ├── hooks/       # 状态和流程逻辑
 │   │   └── lib/         # API client, types, utils
 │   └── index.html
 ├── backend/             # 服务端逻辑
