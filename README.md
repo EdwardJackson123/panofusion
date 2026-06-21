@@ -2,27 +2,15 @@
 
 全景相机自动重建 + 补拍融合 + Metashape 自动化工作站
 
-基于 [xPano](https://github.com/) 核心管线重构，使用 Electron + React + Python FastAPI 架构，
-提供美观的桌面端全景三维重建体验。
+基于 [xPano](https://github.com/eXplorerAI-CN/xPano) 思路重构，提供桌面端全景三维重建体验。
 
 ## 功能
 
 - **全景视频处理**: 支持 `.osv` / `.insv` Insta360 / DJI 双鱼眼视频自动抽帧
 - **多轨混合重建**: 全景视频 + 普通补拍照片 + 航拍照片联合 Metashape 对齐
 - **Metashape 自动化**: Station 约束 → 稀疏对齐 → Folder 释放 → 优化 → COLMAP 导出
-- **3D 点云预览**: 基于 Three.js 的 COLMAP 稀疏点云在线查看
-- **实时进度反馈**: WebSocket 推送管线进度、阶段状态、运行日志
-
-## 技术栈
-
-| 层 | 技术 |
-|---|------|
-| 桌面壳 | Electron |
-| 前端 | React 18 + TypeScript + Vite + Tailwind CSS |
-| UI 设计 | Anthropic 风格暖色调设计系统 |
-| 3D 渲染 | Three.js |
-| 后端 | Python FastAPI + WebSocket |
-| 摄影测量 | Agisoft Metashape |
+- **3D 点云预览**: 支持稀疏点云和相机视锥查看
+- **实时进度反馈**: 展示管线进度、阶段状态和运行日志
 
 ## 快速开始
 
@@ -63,26 +51,26 @@ npm run dev:electron
 
 ```
 PanoFusion/
-├── electron/            # Electron 主进程
-│   ├── main.js          # 窗口管理、Python 进程生命周期
-│   ├── preload.js       # 安全 IPC 桥接
+├── electron/            # 桌面端入口
+│   ├── main.js          # 窗口和后端进程管理
+│   ├── preload.js       # 客户端桥接
 │   └── dev-runner.js    # 开发启动器
-├── frontend/            # React 前端
+├── frontend/            # 界面源码
 │   ├── src/
 │   │   ├── pages/       # ProjectPage, ViewerPage
 │   │   ├── components/  # TrackManager, ProgressPanel, LogViewer, etc.
 │   │   ├── hooks/       # useWebSocket, usePipeline
 │   │   └── lib/         # API client, types, utils
 │   └── index.html
-├── backend/             # Python FastAPI 后端
+├── backend/             # 服务端逻辑
 │   ├── routes/          # API 路由
 │   ├── services/        # 核心管线服务
 │   │   ├── extractor.py # ffmpeg 抽帧
 │   │   ├── manifest.py  # 素材清单构建
 │   │   ├── pipeline.py  # Metashape 自动化对齐
 │   │   └── exporter.py  # COLMAP 导出
-│   ├── ws/              # WebSocket 进度推送
-│   └── main.py          # FastAPI 入口
+│   ├── ws/              # 进度推送
+│   └── main.py          # 服务入口
 ├── Metashape/           # 可选本地依赖占位，不提交 Metashape 程序本体
 └── scripts/             # 启动脚本
 ```
