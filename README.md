@@ -21,6 +21,7 @@
 - Agisoft Metashape Professional，本仓库不包含 Metashape 程序本体
 - ffmpeg (PATH 中可用)
 - Node.js 18+ (前端开发)
+- 作者metashape版本：2.3.1 colmap版本：4.0.4
 
 ### 2. 启动后端
 
