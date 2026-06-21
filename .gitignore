@@ -35,6 +35,9 @@ backend/*.dll
 colmap/*
 !colmap/README.md
 
+# Python virtual environment
+.venv/
+
 # OS / editor / local agent files
 .DS_Store
 Thumbs.db
