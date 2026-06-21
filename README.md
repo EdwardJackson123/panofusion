@@ -1,6 +1,6 @@
 # PanoFusion COLMAP
 
-PanoFusion 的 COLMAP 版本，使用 Electron + React + Python FastAPI 调度双鱼眼全景视频、普通照片和 COLMAP 稀疏重建流程。
+PanoFusion 的 COLMAP 版本，用于调度双鱼眼全景视频、普通照片和 COLMAP 稀疏重建流程。
 
 ## 环境要求
 
