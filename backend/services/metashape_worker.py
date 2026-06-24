@@ -196,7 +196,20 @@ def make_track_sensor(chunk, source_camera, label, sensor_type):
     elif sensor_type == Metashape.Sensor.Type.Frame:
         calib = sensor.calibration
         if calib:
-            calib.type = Metashape.Sensor.Type.Frame
+            # Force calibration type to Frame — the copied src.calibration may
+            # have Fisheye type + Fisheye-fitted distortion params from EXIF
+            # auto-detection. Reset distortion to zero so Metashape re-optimises
+            # them with Frame (pinhole) semantics.
+            try:
+                calib.type = Metashape.Sensor.Type.Frame
+            except Exception:
+                pass
+            # Zero out distortion that may carry Fisheye-fitted values
+            for attr in ("k1", "k2", "k3", "k4", "p1", "p2", "b1", "b2"):
+                try:
+                    setattr(calib, attr, 0.0)
+                except Exception:
+                    pass
     return sensor
 
 

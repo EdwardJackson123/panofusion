@@ -255,13 +255,17 @@ def build_remap_grid(face, W, calib, R_face, sensor_info_str):
     return mx.astype(np.float32), my.astype(np.float32)
 
 def threaded_remap_and_save(img_src, mx, my, file_path):
+    """Return True if the remap + JPEG save succeeded, False otherwise."""
     try:
         out_img = cv2.remap(img_src, mx, my, cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT)
         is_success, buffer = cv2.imencode(".jpg", out_img, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
         if is_success:
-            with open(file_path, "wb") as f: f.write(buffer)
+            with open(file_path, "wb") as f:
+                f.write(buffer)
+            return True
+        return False
     except Exception:
-        pass
+        return False
 
 def project_track_to_pinhole(point_xyz, R, T, fx, fy, cx, cy, width, height):
     X = np.array(point_xyz, dtype=np.float64)
@@ -339,14 +343,27 @@ def run_mixed_export(out_dir=None):
             used_sensors.append(camera.sensor)
             used_sensor_keys.add(camera.sensor.key)
 
+    FISHEYE_SENSOR_KEYWORDS = ['Fisheye', 'Spherical']
+    FISHEYE_CALIB_KEYWORDS = ['Fisheye', 'Spherical', 'Equisolid', 'Equidistant', 'Orthographic', 'Stereographic']
+
     print(">>> [1/4] 开始扫描相机模型...", flush=True)
     for sensor in used_sensors:
-        sensor_info_str = str(sensor.type)
-        if sensor.calibration:
-            sensor_info_str += " " + str(sensor.calibration.type)
-            
-        if any(k in sensor_info_str for k in ['Fisheye', 'Spherical', 'Equisolid', 'Equidistant', 'Orthographic', 'Stereographic']):
+        sensor_type_str = str(sensor.type)
+        calib_type_str = str(sensor.calibration.type) if sensor.calibration else ""
+
+        # Decide Cubemap vs Frame from sensor.type ONLY.
+        # Previously calibration.type leaked into the decision, so a Frame sensor
+        # whose calibration still carried a Fisheye type (copied from EXIF auto-detect)
+        # was mistakenly treated as Cubemap.
+        is_fisheye_sensor = any(k in sensor_type_str for k in FISHEYE_SENSOR_KEYWORDS)
+
+        if is_fisheye_sensor:
             calib = sensor.calibration
+            if calib is None or calib.f == 0:
+                print(f"    警告: 鱼眼传感器 {sensor.label} 无有效校准，跳过", flush=True)
+                continue
+            # Build info_str from calibration.type for build_remap_grid projection selection
+            sensor_info_str = calib_type_str
             opt_W = int(round(calib.f * 2.0))
             if opt_W % 2 != 0: opt_W += 1
             sensor_map[sensor.key] = {
@@ -360,13 +377,18 @@ def run_mixed_export(out_dir=None):
                 sensor_map[sensor.key]['faces'][face] = cam_id_acc
                 cam_id_acc += 1
         else:
+            # Frame sensor — but verify calibration.type is consistent
+            if calib_type_str and any(k in calib_type_str for k in FISHEYE_CALIB_KEYWORDS):
+                print(f"    警告: Frame 传感器 {sensor.label} 的 calibration.type={calib_type_str} 与 sensor.type=Frame 不一致，按 Frame 处理", flush=True)
             calib, T1 = compute_undistorted_calib(sensor)
-            if calib.width == 0: continue
+            if calib.width == 0:
+                print(f"    警告: 传感器 {sensor.label} compute_undistorted_calib 失败(width=0)，跳过", flush=True)
+                continue
             sensor_map[sensor.key] = {
                 'type': 'Frame', 'cid': cam_id_acc, 'calib1': calib, 'T1': T1
             }
             colmap_cams[cam_id_acc] = (
-                1, calib.width, calib.height, calib.f, calib.f, 
+                1, calib.width, calib.height, calib.f, calib.f,
                 calib.cx + calib.width * 0.5, calib.cy + calib.height * 0.5
             )
             cam_id_acc += 1
@@ -415,16 +437,25 @@ def run_mixed_export(out_dir=None):
             R = transform.rotation().inv()
             T = -1 * (R * transform.translation())
             Q = matrix_to_quat(R)
-            
+
             img_name = f"frame_{img_name_base}"
             ext = os.path.splitext(img_name)[1].lower()
-            img_ms = camera.image().warp(calib0, Metashape.Matrix.Diag([1, 1, 1, 1]), calib1, T1)
-            if ext in [".jpg", ".jpeg"]:
-                comp = Metashape.ImageCompression()
-                comp.jpeg_quality = 100
-                img_ms.save(os.path.join(images_dir, img_name), comp)
-            else:
-                img_ms.save(os.path.join(images_dir, img_name))
+            img_path = os.path.join(images_dir, img_name)
+            img_saved = False
+            try:
+                img_ms = camera.image().warp(calib0, Metashape.Matrix.Diag([1, 1, 1, 1]), calib1, T1)
+                if ext in [".jpg", ".jpeg"]:
+                    comp = Metashape.ImageCompression()
+                    comp.jpeg_quality = 100
+                    img_ms.save(img_path, comp)
+                else:
+                    img_ms.save(img_path)
+                img_saved = True
+            except Exception as e:
+                print(f"    警告: Frame warp/save 失败 {camera.label}: {e}，跳过此相机", flush=True)
+
+            if not img_saved:
+                continue  # skip this camera — no metadata written
 
             pts2d = []
             T1_inv = T1.inv()
@@ -451,18 +482,21 @@ def run_mixed_export(out_dir=None):
             T_w2c = -R_w2c @ C_w
 
             img_src = get_image_safe(camera)
+            if img_src is None:
+                print(f"    警告: 无法读取图像 {camera.label}，跳过此相机", flush=True)
+                continue  # skip entire camera — no metadata written
 
-            # 只为当前的这张图片创建临时并发池，处理完立刻清空内存
-            cam_tasks = []
+            # Phase 1: compute face metadata (don't modify point refs yet)
+            face_entries = []
             for face in ['front', 'left', 'right', 'top', 'bottom']:
                 cid = strategy['faces'][face]
                 img_name = f"cube_{face}_{img_name_base}"
-                if not img_name.lower().endswith(('.jpg', '.jpeg')): img_name += ".jpg"
-                
+                if not img_name.lower().endswith(('.jpg', '.jpeg')):
+                    img_name += ".jpg"
+
                 rf, tf = R_faces[face] @ R_w2c, R_faces[face] @ T_w2c
                 qw, qx, qy, qz = matrix_to_quat(Metashape.Matrix(rf.tolist()))
                 fw, fh, vcx, vcy = get_face_configs(opt_W)[face]
-                img_id = img_id_acc
                 pts2d = []
 
                 fx = fy = opt_W / 2.0
@@ -475,24 +509,52 @@ def run_mixed_export(out_dir=None):
                     if uv is None:
                         continue
                     pts2d.append((uv[0], uv[1], track_id))
-                    point['refs'].append((img_id, len(pts2d) - 1))
-                
-                colmap_imgs.append({
-                    'id': img_id_acc, 'Q': Metashape.Vector([qw, qx, qy, qz]), 'T': Metashape.Vector([tf[0], tf[1], tf[2]]), 
-                    'cid': cid, 'name': img_name, 'pts2d': pts2d
+
+                face_entries.append({
+                    'img_id': img_id_acc,
+                    'img_name': img_name,
+                    'Q': Metashape.Vector([qw, qx, qy, qz]),
+                    'T': Metashape.Vector([tf[0], tf[1], tf[2]]),
+                    'cid': cid,
+                    'pts2d': pts2d,
                 })
                 img_id_acc += 1
 
-                if img_src is not None:
-                    cache_key = (camera.sensor.key, opt_W, face)
-                    if cache_key not in grid_cache:
-                        grid_cache[cache_key] = build_remap_grid(face, opt_W, camera.sensor.calibration, R_faces[face], strategy['info_str'])
-                    mx, my = grid_cache[cache_key]
-                    # 提交这一个面的渲染任务
-                    cam_tasks.append(executor.submit(threaded_remap_and_save, img_src.copy(), mx, my, os.path.join(images_dir, img_name)))
-            
-            if cam_tasks:
-                concurrent.futures.wait(cam_tasks)
+            # Phase 2: submit async save tasks
+            face_names = ['front', 'left', 'right', 'top', 'bottom']
+            cam_tasks = []
+            for face, entry in zip(face_names, face_entries):
+                cache_key = (camera.sensor.key, opt_W, face)
+                if cache_key not in grid_cache:
+                    grid_cache[cache_key] = build_remap_grid(
+                        face, opt_W, camera.sensor.calibration, R_faces[face], strategy['info_str']
+                    )
+                mx, my = grid_cache[cache_key]
+                save_path = os.path.join(images_dir, entry['img_name'])
+                cam_tasks.append(executor.submit(
+                    threaded_remap_and_save, img_src.copy(), mx, my, save_path,
+                ))
+
+            # Phase 3: wait, then only commit metadata for faces that saved successfully
+            concurrent.futures.wait(cam_tasks)
+            skipped_faces = 0
+            for task, entry in zip(cam_tasks, face_entries):
+                if task.result():
+                    # Save succeeded — add point refs and colmap metadata
+                    for pt_idx, (px, py, track_id) in enumerate(entry['pts2d']):
+                        points3d_list[track_id]['refs'].append((entry['img_id'], pt_idx))
+                    colmap_imgs.append({
+                        'id': entry['img_id'],
+                        'Q': entry['Q'],
+                        'T': entry['T'],
+                        'cid': entry['cid'],
+                        'name': entry['img_name'],
+                        'pts2d': entry['pts2d'],
+                    })
+                else:
+                    skipped_faces += 1
+            if skipped_faces > 0:
+                print(f"    警告: {camera.label} 有 {skipped_faces}/5 个面保存失败，已跳过", flush=True)
 
     executor.shutdown()
 
